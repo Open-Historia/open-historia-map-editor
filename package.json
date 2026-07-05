@@ -1,0 +1,33 @@
+{
+  "name": "open-historia-map-editor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Standalone map editor for Open Historia — author custom world maps (regions, countries, cities, vector basemaps) and generate whole worlds with Azgaar's Fantasy Map Generator, then export them as scenario bundles.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "server": "node server/server.js",
+    "start": "node server/server.js",
+    "preview": "vite preview",
+    "fetch-fmg": "node scripts/fetch-fmg.mjs"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "geotiff": "^3.0.5",
+    "jszip": "^3.10.1",
+    "ol": "^10.9.0",
+    "ol-pmtiles": "^2.0.2",
+    "pmtiles": "^4.4.0",
+    "polygon-clipping": "^0.15.7",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "shpjs": "^6.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.4",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "vite": "^7.3.2"
+  }
+}

@@ -1,0 +1,24 @@
+# dependencies / build output
+node_modules
+dist
+dist-ssr
+*.local
+
+# Vendored Fantasy Map Generator (fetched at runtime by scripts/fetch-fmg.mjs)
+/fmg/
+
+# Runtime data — saved map documents + the basemap library
+server/data/
+
+# secrets / editor cruft
+.key
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.claude/

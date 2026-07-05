@@ -1,0 +1,19 @@
+/*! Open Historia Map Editor © 2026 Nicholas Krol, MIT (see Editor/LICENSE). */
+:root {
+  color-scheme: dark;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: #0b1020;
+  color: #e5e7eb;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden;
+}
