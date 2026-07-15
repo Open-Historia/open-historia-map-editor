@@ -11,7 +11,8 @@
     "server": "node server/server.js",
     "start": "node server/server.js",
     "preview": "vite preview",
-    "fetch-fmg": "node scripts/fetch-fmg.mjs"
+    "fetch-fmg": "node scripts/fetch-fmg.mjs",
+    "test": "node --test \"server/**/*.test.js\""
   },
   "dependencies": {
     "express": "^5.1.0",
