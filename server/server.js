@@ -24,6 +24,7 @@ import {
   getBasemapCatalog,
   getBasemapPayload,
 } from "./basemapStore.js";
+import { listFlags, createFlag, deleteFlag } from "./flagStore.js";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const app = express();
@@ -92,6 +93,13 @@ app.get("/api/basemaps", (_req, res) => { try { res.json(getBasemapCatalog()); }
 app.post("/api/basemaps", largeJsonParser, (req, res) => { try { res.status(201).json(createBasemap(req.body ?? {})); } catch (e) { sendError(res, 400, e); } });
 app.get("/api/basemaps/:id/payload", (req, res) => { try { res.json(getBasemapPayload(req.params.id)); } catch (e) { sendError(res, 404, e); } });
 app.delete("/api/basemaps/:id", (req, res) => { try { res.json(deleteBasemap(req.params.id)); } catch (e) { sendError(res, 400, e); } });
+
+// ---- Flag library ("My flags") --------------------------------------------
+// No ensure*Store() call: unlike the stores above, flagStore creates its file
+// lazily on first write and reads a missing one as an empty library.
+app.get("/api/flags", (_req, res) => { try { res.json(listFlags()); } catch (e) { sendError(res, 500, e); } });
+app.post("/api/flags", largeJsonParser, (req, res) => { try { res.status(201).json(createFlag(req.body ?? {})); } catch (e) { sendError(res, 400, e); } });
+app.delete("/api/flags/:id", (req, res) => { try { res.json(deleteFlag(req.params.id)); } catch (e) { sendError(res, 400, e); } });
 
 // ---- Vendored Fantasy Map Generator (Azgaar, MIT) at /fmg -----------------
 // Fetched to ../fmg/dist by scripts/fetch-fmg.mjs; present only once vendored,
