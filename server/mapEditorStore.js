@@ -11,6 +11,7 @@
 import fs from "fs";
 import path from "path";
 import url from "url";
+import { resolveChildPath } from "./security.js";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, "data");
@@ -44,7 +45,9 @@ const normalizeId = (raw, fallback = "map") => {
   return base || fallback;
 };
 
-const docPath = (id) => path.join(DOCS_DIR, `${id}.json`);
+// Read/update/delete pass the raw route :id here (only create normalizes), so
+// the shared containment guard keeps ..%2f..%2f from escaping DOCS_DIR.
+const docPath = (id) => resolveChildPath(DOCS_DIR, `${id}.json`, "map id");
 
 const getManifest = () => {
   const m = readJson(MANIFEST_PATH, null);
@@ -107,6 +110,11 @@ export const createMapEditorDocument = (body = {}) => {
     types: body.types || [],
     regions: body.regions || { type: "FeatureCollection", features: [] },
     features: body.features || [],
+    // The map-maker's own palette and flags. Listed explicitly because this record
+    // is built field by field — anything not named here is dropped on create, with
+    // no error, and only shows up as "my colours vanished when I reopened the map".
+    colorOverrides: body.colorOverrides || {},
+    flags: body.flags || {},
     createdAt: now,
     updatedAt: now,
   };
