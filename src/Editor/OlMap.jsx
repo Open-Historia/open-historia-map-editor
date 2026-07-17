@@ -381,7 +381,11 @@ const OlMap = ({
       if (tool === "paint") {
         if (hit) {
           const before = hit.get("owner") || null;
-          const after = (paintOwnerRef.current || "").toUpperCase() || null;
+          // Trim, never case-fold: the owner IS the country's display name. This
+          // line is why the six uppercasers had to go together — it re-folded
+          // whatever the input handed it, so fixing the field alone looked fixed
+          // and wasn't.
+          const after = (paintOwnerRef.current || "").trim() || null;
           hit.set("owner", after);
           regionLayer.changed();
           labelLayer.changed();
@@ -449,6 +453,37 @@ const OlMap = ({
         next = cur.has(hitId) ? Array.from(cur).filter((x) => x !== hitId) : [...cur, hitId];
       else next = [hitId];
       onSelectionRef.current?.(next);
+    });
+
+    // Double-click with Select = select the whole country. Picking one region at a
+    // time to recolour or retag a country is the most common thing a map-maker does
+    // here, and countries run to 35+ regions.
+    //
+    // Returning false is load-bearing: the map takes ol's default interactions,
+    // which include DoubleClickZoom, and ol skips them entirely when a dblclick
+    // listener returns false. Without it you'd select the country AND zoom into it.
+    // singleclick needs no guard — ol holds it for 250ms and cancels it outright
+    // when the second click arrives, so these two never both fire.
+    map.on("dblclick", (evt) => {
+      if (activeToolRef.current !== "select") return undefined; // let dbl-click zoom work
+      let hit = null;
+      map.forEachFeatureAtPixel(
+        evt.pixel,
+        (feature) => {
+          hit = feature;
+          return true;
+        },
+        { layerFilter: (l) => l === regionLayerRef.current, hitTolerance: 2 },
+      );
+      if (!hit) return undefined;
+      const owner = hit.get("owner") || null;
+      // Unowned land has no country to gather, so fall back to just this region —
+      // "every unowned region on the map" is never what the double-click meant.
+      const ids = owner
+        ? regionSource.getFeatures().filter((f) => (f.get("owner") || null) === owner).map((f) => f.getId())
+        : [hit.getId()];
+      onSelectionRef.current?.(ids);
+      return false;
     });
 
     map.on("pointermove", (evt) => {
@@ -680,12 +715,24 @@ const OlMap = ({
         const f = regionSource.getFeatureById(id);
         return f ? summarize(f) : null;
       },
+      // Every country currently on the map, sorted. Backs the Country field's
+      // suggestions, so re-owning a region offers the names that already exist
+      // rather than inviting a near-miss that forks a second country.
+      listOwners: () => {
+        const owners = new Set();
+        for (const f of regionSource.getFeatures()) {
+          const owner = f.get("owner");
+          if (owner) owners.add(String(owner));
+        }
+        return [...owners].sort((a, b) => a.localeCompare(b));
+      },
       queryRegions: (text, limit = 200) => {
         const q = (text || "").trim().toLowerCase();
         const out = [];
         for (const f of regionSource.getFeatures()) {
           if (q) {
-            const hay = `${f.getId()} ${f.get("name") || ""} ${f.get("owner") || ""} ${f.get("country") || ""}`.toLowerCase();
+            // `country` is gone from region props — owner IS the country name now.
+            const hay = `${f.getId()} ${f.get("name") || ""} ${f.get("owner") || ""}`.toLowerCase();
             if (!hay.includes(q)) continue;
           }
           out.push(summarize(f));
@@ -711,16 +758,19 @@ const OlMap = ({
       },
       // Serialize all region geometry to a GeoJSON FeatureCollection (WGS84) for
       // saving/exporting; load one back into the source.
-      serializeRegions: () => {
-        const fmt = new GeoJSON();
-        return JSON.parse(
-          fmt.writeFeatures(regionSource.getFeatures(), {
-            dataProjection: "EPSG:4326",
-            featureProjection: "EPSG:3857",
-            decimals: 5,
-          }),
-        );
-      },
+      // writeFeaturesObject, NOT JSON.parse(writeFeatures(...)). OL's writeFeatures
+      // is literally JSON.stringify(writeFeaturesObject(...)) (format/JSONFeature.js),
+      // so parsing its result built an ~83MB string at z9 and immediately tore it
+      // back apart — to reach the object writeFeaturesObject already had. And this
+      // runs on the 2s autosave, so the editor did that on a loop while you worked;
+      // saveDocument then stringifies the payload anyway, making it string -> objects
+      // -> string. That churn is what ran the tab out of memory.
+      serializeRegions: () =>
+        new GeoJSON().writeFeaturesObject(regionSource.getFeatures(), {
+          dataProjection: "EPSG:4326",
+          featureProjection: "EPSG:3857",
+          decimals: 5,
+        }),
       loadRegions: (fc) => {
         const fmt = new GeoJSON();
         regionSource.clear();
@@ -836,8 +886,18 @@ const OlMap = ({
         // edge takes a bite; drawing over one entirely deletes it.
         const cutter = f.getGeometry();
         const carved = [];
-        for (const other of source.getFeatures()) {
-          if (other === f) continue;
+        // Ask the source's R-tree for the handful of regions whose extents meet the
+        // new one, rather than walking all 3,662 and running a full boolean op on
+        // each. overlaps() is polygon-clipping, which builds sweep-line structures
+        // per call — doing that against every region on the map allocated hard
+        // enough to run the tab out of memory once the seed went to z9 and each
+        // polygon carried ~1,116 vertices instead of ~156. The extent query is an
+        // index lookup and rejects everything that cannot possibly touch.
+        const candidates = [];
+        source.forEachFeatureIntersectingExtent(cutter.getExtent(), (other) => {
+          if (other !== f) candidates.push(other);
+        });
+        for (const other of candidates) {
           const geom = other.getGeometry();
           if (!geom || !overlaps(geom, cutter)) continue;
           const before = geom.clone();
