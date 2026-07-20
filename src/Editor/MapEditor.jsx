@@ -17,6 +17,7 @@ import BottomBar from "./BottomBar.jsx";
 import TypeManager from "./TypeManager.jsx";
 import RegionsPanel from "./RegionsPanel.jsx";
 import LayersPanel from "./LayersPanel.jsx";
+import ReferencePanel from "./ReferencePanel.jsx";
 import FeatureManager from "./FeatureManager.jsx";
 import SelectionInspector from "./SelectionInspector.jsx";
 import DocumentsMenu from "./DocumentsMenu.jsx";
@@ -56,6 +57,10 @@ const MapEditor = ({ onClose, scenarioName, onApplyToScenario, initialMap } = {}
   // position:fixed — an overlay rendered inside the panel gets clipped to it and
   // trapped under its z-index, whatever z-index the overlay itself asks for.
   const [flagPickerFor, setFlagPickerFor] = useState(null);
+  // Session-only tracing aid ({ dataUrl, aspect, opacity, visible }) — kept out
+  // of the document on purpose so it can never leak into saves or game exports.
+  const [refImage, setRefImage] = useState(null);
+  const [refPlaceNonce, setRefPlaceNonce] = useState(0);
   const [fmgOpen, setFmgOpen] = useState(false); // FMG "Generate" drawer
   const [fmgBusy, setFmgBusy] = useState(false);
   const [fmgLog, setFmgLog] = useState([]);
@@ -433,6 +438,9 @@ const MapEditor = ({ onClose, scenarioName, onApplyToScenario, initialMap } = {}
         onReady={setApi}
         customBackground={customBg}
         onCustomBackgroundSave={(saved) => d.patchMetadata({ customBackground: saved })}
+        referenceImage={refImage}
+        referenceAdjust={openPanel === "reference" && Boolean(refImage)}
+        referencePlaceNonce={refPlaceNonce}
       />
 
       <DocumentsMenu
@@ -564,6 +572,14 @@ const MapEditor = ({ onClose, scenarioName, onApplyToScenario, initialMap } = {}
         <RegionsPanel api={api} selection={d.selection} setSelection={d.setSelection} onClose={() => setOpenPanel(null)} />
       )}
       {openPanel === "layers" && <LayersPanel api={api} onClose={() => setOpenPanel(null)} />}
+      {openPanel === "reference" && (
+        <ReferencePanel
+          refImage={refImage}
+          setRefImage={setRefImage}
+          onRecenter={() => setRefPlaceNonce((n) => n + 1)}
+          onClose={() => setOpenPanel(null)}
+        />
+      )}
       {openPanel === "features" && (
         <FeatureManager features={d.features} setFeatures={d.setFeatures} api={api} onClose={() => setOpenPanel(null)} />
       )}
